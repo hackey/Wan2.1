@@ -51,12 +51,19 @@ In this repository, we present **Wan2.1**, a comprehensive and open suite of vid
 
 ## ROCM (update my fork)
 git clone https://github.com/hackey/Wan2.1.git
+
 git checkout delete-flash-att
+
 conda activate python312
+
 python -m venv ./venv
+
 source ./venv/bin/activate
+
 pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.3
+
 pip install -r requirements.txt
+
 pip install einops
 
 manual download Wan2.1-T2V-1.3B model!!!!

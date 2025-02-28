@@ -49,6 +49,21 @@ In this repository, we present **Wan2.1**, a comprehensive and open suite of vid
 
 ## Quickstart
 
+## ROCM (update my fork)
+git clone https://github.com/hackey/Wan2.1.git
+git checkout delete-flash-att
+conda activate python312
+python -m venv ./venv
+source ./venv/bin/activate
+pip3 install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm6.3
+pip install -r requirements.txt
+pip install einops
+
+manual download Wan2.1-T2V-1.3B model!!!!
+
+and run:
+python generate.py  --task t2v-1.3B --size 832*480 --ckpt_dir ./Wan2.1-T2V-1.3B --sample_shift 8 --sample_guide_scale 6 --prompt "Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage."
+
 #### Installation
 Clone the repo:
 ```

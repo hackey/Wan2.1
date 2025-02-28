@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as T
 
-from .attention import flash_attention
+from .attention import attention  # Заменяем flash_attention на attention
 from .tokenizers import HuggingfaceTokenizer
 from .xlm_roberta import XLMRoberta
 
@@ -39,19 +39,16 @@ def pos_interpolate(pos, seq_len):
 
 
 class QuickGELU(nn.Module):
-
     def forward(self, x):
         return x * torch.sigmoid(1.702 * x)
 
 
 class LayerNorm(nn.LayerNorm):
-
     def forward(self, x):
         return super().forward(x.float()).type_as(x)
 
 
 class SelfAttention(nn.Module):
-
     def __init__(self,
                  dim,
                  num_heads,
@@ -80,9 +77,9 @@ class SelfAttention(nn.Module):
         # compute query, key, value
         q, k, v = self.to_qkv(x).view(b, s, 3, n, d).unbind(2)
 
-        # compute attention
+        # compute attention (заменяем flash_attention на attention)
         p = self.attn_dropout if self.training else 0.0
-        x = flash_attention(q, k, v, dropout_p=p, causal=self.causal, version=2)
+        x = attention(q, k, v, dropout_p=p, causal=self.causal)
         x = x.reshape(b, s, c)
 
         # output
@@ -92,7 +89,6 @@ class SelfAttention(nn.Module):
 
 
 class SwiGLU(nn.Module):
-
     def __init__(self, dim, mid_dim):
         super().__init__()
         self.dim = dim
@@ -110,7 +106,6 @@ class SwiGLU(nn.Module):
 
 
 class AttentionBlock(nn.Module):
-
     def __init__(self,
                  dim,
                  mlp_ratio,
@@ -154,7 +149,6 @@ class AttentionBlock(nn.Module):
 
 
 class AttentionPool(nn.Module):
-
     def __init__(self,
                  dim,
                  mlp_ratio,
@@ -193,8 +187,8 @@ class AttentionPool(nn.Module):
         q = self.to_q(self.cls_embedding).view(1, 1, n, d).expand(b, -1, -1, -1)
         k, v = self.to_kv(x).view(b, s, 2, n, d).unbind(2)
 
-        # compute attention
-        x = flash_attention(q, k, v, version=2)
+        # compute attention (заменяем flash_attention на attention)
+        x = attention(q, k, v)
         x = x.reshape(b, 1, c)
 
         # output
@@ -207,7 +201,6 @@ class AttentionPool(nn.Module):
 
 
 class VisionTransformer(nn.Module):
-
     def __init__(self,
                  image_size=224,
                  patch_size=16,
@@ -301,7 +294,6 @@ class VisionTransformer(nn.Module):
 
 
 class XLMRobertaWithHead(XLMRoberta):
-
     def __init__(self, **kwargs):
         self.out_dim = kwargs.pop('out_dim')
         super().__init__(**kwargs)
@@ -326,7 +318,6 @@ class XLMRobertaWithHead(XLMRoberta):
 
 
 class XLMRobertaCLIP(nn.Module):
-
     def __init__(self,
                  embed_dim=1024,
                  image_size=224,
@@ -499,7 +490,6 @@ def clip_xlm_roberta_vit_h_14(
 
 
 class CLIPModel:
-
     def __init__(self, dtype, device, checkpoint_path, tokenizer_path):
         self.dtype = dtype
         self.device = device

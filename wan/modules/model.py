@@ -7,7 +7,7 @@ import torch.nn as nn
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
 
-from .attention import flash_attention
+from .attention import attention  # Заменяем flash_attention на attention
 
 __all__ = ['WanModel']
 
@@ -68,7 +68,6 @@ def rope_apply(x, grid_sizes, freqs):
 
 
 class WanRMSNorm(nn.Module):
-
     def __init__(self, dim, eps=1e-5):
         super().__init__()
         self.dim = dim
@@ -87,7 +86,6 @@ class WanRMSNorm(nn.Module):
 
 
 class WanLayerNorm(nn.LayerNorm):
-
     def __init__(self, dim, eps=1e-6, elementwise_affine=False):
         super().__init__(dim, elementwise_affine=elementwise_affine, eps=eps)
 
@@ -100,7 +98,6 @@ class WanLayerNorm(nn.LayerNorm):
 
 
 class WanSelfAttention(nn.Module):
-
     def __init__(self,
                  dim,
                  num_heads,
@@ -143,12 +140,12 @@ class WanSelfAttention(nn.Module):
 
         q, k, v = qkv_fn(x)
 
-        x = flash_attention(
-            q=rope_apply(q, grid_sizes, freqs),
-            k=rope_apply(k, grid_sizes, freqs),
-            v=v,
-            k_lens=seq_lens,
-            window_size=self.window_size)
+        # Применяем RoPE перед attention
+        q = rope_apply(q, grid_sizes, freqs)
+        k = rope_apply(k, grid_sizes, freqs)
+
+        # Заменяем flash_attention на attention
+        x = attention(q, k, v, k_lens=seq_lens)
 
         # output
         x = x.flatten(2)
@@ -157,7 +154,6 @@ class WanSelfAttention(nn.Module):
 
 
 class WanT2VCrossAttention(WanSelfAttention):
-
     def forward(self, x, context, context_lens):
         r"""
         Args:
@@ -173,7 +169,7 @@ class WanT2VCrossAttention(WanSelfAttention):
         v = self.v(context).view(b, -1, n, d)
 
         # compute attention
-        x = flash_attention(q, k, v, k_lens=context_lens)
+        x = attention(q, k, v, k_lens=context_lens)
 
         # output
         x = x.flatten(2)
@@ -182,7 +178,6 @@ class WanT2VCrossAttention(WanSelfAttention):
 
 
 class WanI2VCrossAttention(WanSelfAttention):
-
     def __init__(self,
                  dim,
                  num_heads,
@@ -193,7 +188,6 @@ class WanI2VCrossAttention(WanSelfAttention):
 
         self.k_img = nn.Linear(dim, dim)
         self.v_img = nn.Linear(dim, dim)
-        # self.alpha = nn.Parameter(torch.zeros((1, )))
         self.norm_k_img = WanRMSNorm(dim, eps=eps) if qk_norm else nn.Identity()
 
     def forward(self, x, context, context_lens):
@@ -213,9 +207,10 @@ class WanI2VCrossAttention(WanSelfAttention):
         v = self.v(context).view(b, -1, n, d)
         k_img = self.norm_k_img(self.k_img(context_img)).view(b, -1, n, d)
         v_img = self.v_img(context_img).view(b, -1, n, d)
-        img_x = flash_attention(q, k_img, v_img, k_lens=None)
-        # compute attention
-        x = flash_attention(q, k, v, k_lens=context_lens)
+
+        # compute attention для изображения и текста отдельно
+        img_x = attention(q, k_img, v_img)
+        x = attention(q, k, v, k_lens=context_lens)
 
         # output
         x = x.flatten(2)
@@ -232,7 +227,6 @@ WAN_CROSSATTENTION_CLASSES = {
 
 
 class WanAttentionBlock(nn.Module):
-
     def __init__(self,
                  cross_attn_type,
                  dim,
@@ -314,7 +308,6 @@ class WanAttentionBlock(nn.Module):
 
 
 class Head(nn.Module):
-
     def __init__(self, dim, out_dim, patch_size, eps=1e-6):
         super().__init__()
         self.dim = dim
@@ -344,7 +337,6 @@ class Head(nn.Module):
 
 
 class MLPProj(torch.nn.Module):
-
     def __init__(self, in_dim, out_dim):
         super().__init__()
 
